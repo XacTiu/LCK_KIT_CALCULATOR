@@ -765,6 +765,35 @@ body::after {
   gap: 10px;
 }
 
+/* Botones de productos opcionales */
+.opcionales-bar {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.add-opcional-btn {
+  background: transparent;
+  color: var(--c-op, #fff);
+  border: 1.5px dashed var(--c-op, #fff);
+  border-radius: 4px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  padding: 12px 14px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.15s;
+  opacity: 0.7;
+  text-align: center;
+}
+.add-opcional-btn:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--c-op, #fff) 12%, transparent);
+}
+
 .action-btn {
   background: white;
   color: black;
@@ -938,6 +967,7 @@ const PRODUCTS = [
       { capacidad: 5000, precio: 200, label: '5L', inKitBuilder: true }
     ]},
   { id: 'blueenergy', nombre: 'BLUE ENERGY', color: 'var(--c-blueenergy)', unit: 'ml',
+    opcional: true,
     consumoPorLitro: 5,
     formatos: [
       // Único formato disponible. TODO: actualizar si LCK saca otros.
@@ -966,6 +996,7 @@ const PRODUCTS = [
       { capacidad: 5000, precio: 210, label: '5kg', inKitBuilder: true }
     ]},
   { id: 'revive', nombre: 'REVIVE', color: 'var(--c-revive)', unit: 'ml',
+    opcional: true,
     consumoPorLitro: 2.45,
     formatos: [
       { capacidad: 250, precio: 18, label: '250ml', inKitBuilder: true },
@@ -1228,7 +1259,7 @@ function calculate() {
       consumoNecesario: consumoNecesario,
       sugerido: sugerido,
       actual: sugerido ? sugerido.map(c => ({ formato: c.formato, unidades: c.unidades })) : null,
-      activo: true,
+      activo: producto.opcional ? false : true,
       editado: false
     };
   }
@@ -1265,9 +1296,16 @@ function render() {
   `;
   
   let delay = 0;
+  const opcionalesInactivos = [];
   for (const producto of PRODUCTS) {
     const e = estado[producto.id];
     if (!e || !e.actual) continue;
+    
+    // Productos opcionales desactivados → botón añadir, no card
+    if (producto.opcional && !e.activo) {
+      opcionalesInactivos.push(producto);
+      continue;
+    }
     
     const totalProducto = e.actual.reduce((s, c) => s + c.formato.precio * c.unidades, 0);
     const capacidadActual = e.actual.reduce((s, c) => s + c.formato.capacidad * c.unidades, 0);
@@ -1308,6 +1346,17 @@ function render() {
   }
   
   html += '</div>';
+  
+  // Botones de productos opcionales no incluidos
+  if (opcionalesInactivos.length > 0) {
+    html += '<div class="opcionales-bar">';
+    for (const prod of opcionalesInactivos) {
+      const colorVal = getComputedStyle(document.documentElement)
+        .getPropertyValue(prod.color.replace('var(', '').replace(')', '').trim()).trim();
+      html += `<button class="add-opcional-btn" style="--c-op: ${colorVal}" onclick="activarOpcional('${prod.id}')">＋ AÑADIR ${prod.nombre}</button>`;
+    }
+    html += '</div>';
+  }
   
   // Botones de acción
   if (activosCount > 0) {
@@ -1361,6 +1410,16 @@ function toggleActivo(productId, event) {
   event.stopPropagation();
   estado[productId].activo = !estado[productId].activo;
   render();
+}
+
+function activarOpcional(productId) {
+  estado[productId].activo = true;
+  render();
+  // Expandir la card recién añadida para que el cliente la vea
+  setTimeout(() => {
+    const el = document.getElementById('prod-' + productId);
+    if (el) el.classList.add('expanded');
+  }, 50);
 }
 
 function cambiarFormato(productId, idx, label) {
